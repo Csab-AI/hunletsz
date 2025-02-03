@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <title>Projektek Erőforrás Hozzárendelése - Hunep</title>
+  <!-- jsPDF könyvtár CDN (a 2.5.1-es verzió) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    /* Alapvető stílusok */
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: Arial, sans-serif;
+      color: #000; /* Kifejezetten fekete szöveg */
+      background-color: #fff;
+    }
+    /* Fejléc */
+    header {
+      background-color: #005baa;
+      color: #fff;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 80px;
+      flex-shrink: 0;
+    }
+    header img {
+      height: 50px;
+    }
+    header h1 {
+      margin: 0 10px 0 0;
+      font-size: 1.8em;
+    }
+    /* Navigáció a fejlécben */
+    nav {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+    nav a {
+      color: #fff;
+      text-decoration: none;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    nav a:hover {
+      text-decoration: underline;
+    }
+    /* Új dolgozó hozzáadás – űrlap (alapból elrejtve) */
+    #newEmployeeForm {
+      display: none;
+      position: absolute;
+      top: 80px;
+      right: 20px;
+      background-color: #fafafa;
+      border: 1px solid #ccc;
+      padding: 10px;
+      border-radius: 3px;
+      z-index: 1000;
+    }
+    #newEmployeeForm input[type="text"] {
+      padding: 5px;
+      margin: 5px 0;
+      width: 200px;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+    }
+    #newEmployeeForm button {
+      padding: 5px 10px;
+      background-color: #005baa;
+      color: #fff;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    /* Fő tartalom – két képernyő (görgethető) */
+    main, #ganttScreen {
+      height: calc(100vh - 80px);
+      overflow-y: auto;
+      color: #000; /* Biztosítjuk, hogy a tartalom fekete legyen */
+    }
+    /* Fő képernyő: Projektek & Dolgozók */
+    #mainScreen {
+      display: flex;
+    }
+    /* Bal (projektek) és jobb (dolgozók) oszlopok */
+    #projectsContainer, #employeesContainer {
+      padding: 10px;
+    }
+    #projectsContainer {
+      flex: 1;
+      border-right: 1px solid #ccc;
+    }
+    #employeesContainer {
+      flex: 1;
+    }
+    /* Szekciók stílusa */
+    section {
+      margin-bottom: 10px;
+      padding: 10px;
+      background-color: #fff;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .project {
+      margin-bottom: 10px;
+      padding: 5px;
+      border: 1px solid #ddd;
+      border-radius: 3px;
+      background-color: #f9f9f9;
+    }
+    .project-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .project-header h3 {
+      margin: 0;
+      color: #005baa;
+      cursor: text;
+    }
+    .delete-project {
+      background-color: #ff4d4d;
+      border: none;
+      color: #fff;
+      cursor: pointer;
+      border-radius: 3px;
+      padding: 2px 6px;
+    }
+    .assignments {
+      margin-top: 5px;
+      border-top: 1px dashed #aaa;
+      padding-top: 3px;
+      font-size: 0.8em;
+    }
+    .employee {
+      border: 1px solid #005baa;
+      padding: 5px;
+      margin: 5px 0;
+      background-color: #e7f1ff;
+      cursor: grab;
+      border-radius: 3px;
+    }
+    .employee.dragging {
+      opacity: 0.5;
+    }
+    /* Munkaköri csoportok stílusa */
+    .role-group {
+      border: 1px solid #ddd;
+      margin-bottom: 10px;
+      padding: 5px;
+      border-radius: 3px;
+      background-color: #fff;
+    }
+    .group-handle {
+      background-color: #005baa;
+      color: #fff;
+      padding: 3px;
+      cursor: move;
+      text-align: center;
+      font-weight: bold;
+      border-radius: 3px;
+      margin-bottom: 5px;
+    }
+    /* GANTT diagram stílusa */
+    #ganttScreen {
+      display: none;
+      padding: 10px;
+      overflow-y: auto;
+      color: #000;
+    }
+    /* Időskála a diagram tetején */
+    .gantt-timeline-header {
+      position: relative;
+      width: 100%;
+      height: 30px;
+      border: 1px solid #ccc;
+      margin-left: 110px;
+      margin-bottom: 5px;
+    }
+    /* Egy projekt sor a GANTT diagramon – a min-height biztosítja, hogy a több soros cím ne törje meg az elrendezést */
+    .gantt-row {
+      position: relative;
+      min-height: 50px;
+      margin-bottom: 5px;
+      padding-top: 10px;
+    }
+    /* A projekt sáv maga */
+    .gantt-bar {
+      position: absolute;
+      background-color: #005baa;
+      color: #fff;
+      text-align: center;
+      border-radius: 3px;
+      overflow: hidden;
+      white-space: nowrap;
+      font-size: 12px;
+    }
+    /* A projekt neveket tartalmazó elem: lehet több sorban, törik a sor */
+    .gantt-label {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100px;
+      text-align: right;
+      padding-right: 10px;
+      white-space: normal;
+      word-wrap: break-word;
+    }
+    .gantt-row-content {
+      position: absolute;
+      left: 110px;
+      top: 0;
+      box-sizing: border-box;
+      border: 1px solid #ccc;
+    }
+    /* Projekt-összehasonlító diagram konténer */
+    #comparisonContainer {
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div style="display: flex; align-items: center; gap: 15px;">
+      <img src="hunep_logo.png" alt="Hunep logó">
+      <h1>Erőforrás Hozzárendelés</h1>
+    </div>
+    <nav>
+      <a href="#" onclick="showMainScreen(); return false;">Projektek & Dolgozók</a>
+      <a href="#" onclick="showGanttScreen(); return false;">GANTT diagram</a>
+      <a href="#" onclick="toggleNewEmployeeForm(); return false;">Új dolgozó hozzáadása</a>
+      <a href="#" onclick="saveState(); return false;">Állapot mentése</a>
+      <a href="#" onclick="loadState(); return false;">Állapot betöltése</a>
+      <a href="#" onclick="generateComparisonChart(); return false;">Összehasonlító diagram</a>
+      <a href="#" onclick="savePDF(); return false;">Mentés PDF-ként</a>
+    </nav>
+    <!-- Új dolgozó űrlap -->
+    <div id="newEmployeeForm">
+      <input type="text" id="newEmployeeName" placeholder="Dolgozó neve">
+      <input type="text" id="newEmployeeRole" placeholder="Munkakör">
+      <button onclick="addEmployeeFromForm()">Hozzáadás</button>
+    </div>
+  </header>
+  
+  <!-- Fő képernyő: Projektek & Dolgozók -->
+  <main id="mainScreen">
+    <!-- Projektek oszlop -->
+    <div id="projectsContainer">
+      <section id="projectSetup">
+        <h2>Projekt létrehozása</h2>
+        <label for="projectName">Projekt neve:</label>
+        <input type="text" id="projectName" placeholder="Projekt neve">
+        <button onclick="createProject()">Projekt létrehozása</button>
+      </section>
+      <section id="projectsSection" style="display:none;">
+        <!-- Itt jelennek meg a projekt kártyák -->
+      </section>
+    </div>
+    <!-- Dolgozók oszlop -->
+    <div id="employeesContainer">
+      <!-- Itt jelennek meg a dolgozók csoportosítva -->
+    </div>
+  </main>
+  
+  <!-- GANTT diagram képernyő -->
+  <div id="ganttScreen">
+    <button onclick="generateGanttChart()">GANTT diagram generálása</button>
+    <div id="ganttContainer"></div>
+    <!-- Projekt-összehasonlító diagram -->
+    <div id="comparisonContainer"></div>
+  </div>
+  
+  <script>
+    // Globális változók
+    let projects = [];
+    let employees = {}; // Kulcs: munkakör, érték: dolgozók tömbje
+    let employeeIdCounter = 0;
+    let assignmentIdCounter = 0; // Új számláló az assignmentokhoz
+
+    // Preloadolt dolgozók (frissített lista)
+    const preloadedEmployees = [
+      { name: "Balogh Bence Sándor", role: "építésvezető" },
+      { name: "Barta Miklós", role: "építésvezető" },
+      { name: "Bencze Zoltán", role: "projektvezető főmérnök" },
+      { name: "Bordás Csaba", role: "építésvezető" },
+      { name: "Czinke-Nagy Fanni", role: "előkészítő mérnök" },
+      { name: "Deák Viktor", role: "projektvezető mérnök" },
+      { name: "Dobi Róbert", role: "főépítésvezető" },
+      { name: "Gerzsenyi László", role: "főépítésvezető" },
+      { name: "Gyöngyösi Józsefné", role: "előkészítő mérnök" },
+      { name: "Hidi Béla", role: "építésvezető" },
+      { name: "Hrabovszki János Norbert", role: "projektvezető mérnök" },
+      { name: "Hutóczki Kristóf", role: "épületgépész projektmérnök" },
+      { name: "Iglicz Zoltán", role: "munkahelyi technikus" },
+      { name: "Kaszonyi Botond", role: "építésvezető" },
+      { name: "Kiss Szabolcs Krisztián", role: "építésvezető" },
+      { name: "Kulcsár Lajos", role: "szerelőipari főmérnök" },
+      { name: "Kunkli Judit", role: "munkahelyi technikus" },
+      { name: "Lacza János", role: "előkészítő mérnök" },
+      { name: "Laposi Ferenc Ádám", role: "építésvezető" },
+      { name: "Lisku Gergő", role: "munkahelyi technikus" },
+      { name: "Nánási Attila", role: "építésvezető" },
+      { name: "Nemesné Gyöngyösi Katalin Györgyi", role: "előkészítő mérnök" },
+      { name: "Oláh András", role: "épületvillamossági projektmérnök" },
+      { name: "Pósán Miklós Zoltán", role: "épületvillamossági projektmérnök" },
+      { name: "Sáfár Noémi Rozália", role: "előkészítő mérnök" },
+      { name: "Sági Ibolya", role: "előkészítő mérnök" },
+      { name: "Sütő Károly", role: "projektvezető főmérnök" },
+      { name: "Süvöltős Sándor József", role: "épületgépész projektmérnök" },
+      { name: "Szabó Ivett Petronella", role: "szerelőipari asszisztens" },
+      { name: "Szarvas Sándor", role: "épületvillamossági projektmérnök" },
+      { name: "Varga Sándor", role: "munkahelyi technikus" },
+      { name: "Vigh Tamás", role: "projektvezető főmérnök" }
+    ];
+
+    // Preloadolt projektek (a kért projektlista)
+    const preloadedProjects = [
+      { id: 1, name: "Lauda projekt 1. ütem", start: "2025-02-03", end: "2025-07-31", assignments: [] },
+      { id: 2, name: "Auguszta projekt", start: "2025-02-03", end: "2025-03-31", assignments: [] },
+      { id: 3, name: "Lyceum szálloda", start: "2025-02-03", end: "2025-09-15", assignments: [] },
+      { id: 4, name: "NYIA Rising csarnok", start: "2025-02-03", end: "2025-09-30", assignments: [] },
+      { id: 5, name: "LEGO kantin", start: "2025-02-15", end: "2025-10-30", assignments: [] },
+      { id: 6, name: "Bánky felújítás", start: "2025-03-01", end: "2025-10-30", assignments: [] },
+      { id: 7, name: "Kossuth utcai társasház", start: "2025-02-20", end: "2025-12-31", assignments: [] },
+      { id: 8, name: "Sátoraljaújhely szálloda", start: "2025-02-03", end: "2025-10-30", assignments: [] },
+      { id: 9, name: "Balatonakarattya", start: "2025-05-01", end: "2025-12-31", assignments: [] },
+      { id: 10, name: "Szabad kapacitás", start: "2025-04-01", end: "2025-12-31", assignments: [] },
+      { id: 11, name: "Szabad kapacitás 2", start: "2025-07-01", end: "2025-12-31", assignments: [] }
+    ];
+    
+    // Globális projects tömb beállítása
+    projects = preloadedProjects.slice();
+    
+    // Dolgozók inicializálása
+    (function initializePreloadedEmployees() {
+      preloadedEmployees.forEach(emp => {
+        if (!employees[emp.role]) {
+          employees[emp.role] = [];
+        }
+        employees[emp.role].push({ id: employeeIdCounter++, name: emp.name, available: 100, role: emp.role });
+      });
+    })();
+    
+    // Új dolgozó űrlap togglezése
+    function toggleNewEmployeeForm() {
+      const form = document.getElementById("newEmployeeForm");
+      form.style.display = (form.style.display === "none" || form.style.display === "") ? "block" : "none";
+    }
+    
+    function addEmployeeFromForm() {
+      const name = document.getElementById("newEmployeeName").value.trim();
+      const role = document.getElementById("newEmployeeRole").value.trim();
+      if (name === "" || role === "") {
+        alert("Kérem, adja meg a dolgozó nevét és munkakörét!");
+        return;
+      }
+      if (!employees[role]) {
+        employees[role] = [];
+      }
+      employees[role].push({ id: employeeIdCounter++, name: name, available: 100, role: role });
+      initEmployeeList();
+      document.getElementById("newEmployeeName").value = "";
+      document.getElementById("newEmployeeRole").value = "";
+      toggleNewEmployeeForm();
+    }
+    
+    // Új projekt létrehozása (a felhasználó számára)
+    function createProject() {
+      const projectNameInput = document.getElementById("projectName");
+      const projectName = projectNameInput.value.trim();
+      if (projectName === "") {
+        alert("Kérem, adja meg a projekt nevét!");
+        return;
+      }
+      const newProjectId = projects.length > 0 ? projects[projects.length - 1].id + 1 : 1;
+      const proj = { id: newProjectId, name: projectName, start: "", end: "", assignments: [] };
+      projects.push(proj);
+      renderProjects();
+      projectNameInput.value = "";
+    }
+    
+    // Projektek renderelése
+    function renderProjects() {
+      const projectsSection = document.getElementById("projectsSection");
+      projectsSection.innerHTML = "";
+      projects.forEach(proj => {
+        let projDiv = document.createElement("div");
+        projDiv.className = "project";
+        projDiv.draggable = true;
+        projDiv.dataset.projectId = proj.id;
+        projDiv.innerHTML = `
+          <div class="project-header">
+            <h3 contenteditable="true" onblur="updateProjectName(this)">${proj.name}</h3>
+            <button class="delete-project" onclick="deleteProject(this)">X</button>
+          </div>
+          <label>Kezdő dátum:<br><input type="date" id="start-date-${proj.id}" value="${proj.start}" /></label><br>
+          <label>Végdátum:<br><input type="date" id="end-date-${proj.id}" value="${proj.end}" /></label>
+          <div class="assignments"></div>
+        `;
+        projDiv.addEventListener("dragstart", projectDragStart);
+        projDiv.addEventListener("dragend", projectDragEnd);
+        projDiv.addEventListener("dragover", projectDragOver);
+        projDiv.addEventListener("drop", projectDrop);
+        // Dolgozók áthúzása a projektbe
+        projDiv.addEventListener("dragover", dragOver);
+        projDiv.addEventListener("dragleave", dragLeave);
+        projDiv.addEventListener("drop", dropEmployee);
+        projectsSection.appendChild(projDiv);
+      });
+      projectsSection.style.display = "block";
+    }
+    
+    // Projekt név frissítése (onblur)
+    function updateProjectName(h3) {
+      let projectElem = h3.closest('.project');
+      let projectId = projectElem.dataset.projectId;
+      let newName = h3.textContent.trim();
+      let proj = projects.find(p => p.id == projectId);
+      if (proj) {
+        proj.name = newName;
+      }
+    }
+    
+    // Projekt törlése
+    function deleteProject(btn) {
+      let projectElem = btn.closest('.project');
+      let projectId = projectElem.dataset.projectId;
+      projectElem.parentNode.removeChild(projectElem);
+      projects = projects.filter(p => p.id != projectId);
+    }
+    
+    // Projektek sorrendjének frissítése (drag & drop)
+    function updateProjectsOrder() {
+      let newOrder = [];
+      let projectElems = document.querySelectorAll("#projectsSection .project");
+      projectElems.forEach(elem => {
+        let id = parseInt(elem.dataset.projectId);
+        let proj = projects.find(p => p.id == id);
+        if (proj) newOrder.push(proj);
+      });
+      projects = newOrder;
+    }
+    
+    // Projekt drag & drop események
+    function projectDragStart(e) {
+      e.dataTransfer.setData("project", e.currentTarget.dataset.projectId);
+      e.currentTarget.classList.add("dragging");
+    }
+    function projectDragEnd(e) {
+      e.currentTarget.classList.remove("dragging");
+    }
+    function projectDragOver(e) {
+      e.preventDefault();
+    }
+    function projectDrop(e) {
+      e.preventDefault();
+      let draggedId = e.dataTransfer.getData("project");
+      if (!draggedId) return;
+      let draggedElem = document.querySelector(`.project[data-project-id='${draggedId}']`);
+      if (!draggedElem || draggedElem === e.currentTarget) return;
+      let projectsSection = document.getElementById("projectsSection");
+      let rect = e.currentTarget.getBoundingClientRect();
+      if (e.clientY - rect.top < rect.height / 2) {
+        projectsSection.insertBefore(draggedElem, e.currentTarget);
+      } else {
+        projectsSection.insertBefore(draggedElem, e.currentTarget.nextSibling);
+      }
+      updateProjectsOrder();
+    }
+    
+    // Dolgozók listájának megjelenítése (munkaköri csoportok szerint)
+    function initEmployeeList() {
+      const container = document.getElementById("employeesContainer");
+      container.innerHTML = "";
+      for (const role in employees) {
+        if (employees[role].length > 0) {
+          const roleDiv = document.createElement("div");
+          roleDiv.className = "role-group";
+          roleDiv.innerHTML = `<div class="group-handle" draggable="true">${role}</div>`;
+          const handle = roleDiv.querySelector(".group-handle");
+          handle.addEventListener("dragstart", groupDragStart);
+          handle.addEventListener("dragend", groupDragEnd);
+          roleDiv.addEventListener("dragover", groupDragOver);
+          roleDiv.addEventListener("drop", groupDrop);
+          employees[role].forEach(emp => {
+            const empDiv = document.createElement("div");
+            empDiv.className = "employee";
+            empDiv.textContent = `${emp.name} (${emp.available}%)`;
+            empDiv.dataset.empId = emp.id;
+            empDiv.dataset.role = role;
+            empDiv.draggable = true;
+            empDiv.addEventListener("dragstart", dragStart);
+            empDiv.addEventListener("dragend", dragEnd);
+            // Unassign események
+            empDiv.addEventListener("dragover", assignmentReturnDragOver);
+            empDiv.addEventListener("dragleave", assignmentReturnDragLeave);
+            empDiv.addEventListener("drop", assignmentReturnDrop);
+            roleDiv.appendChild(empDiv);
+          });
+          container.appendChild(roleDiv);
+        }
+      }
+    }
+    
+    // Drag & Drop események dolgozókhoz
+    function dragStart(e) {
+      if (!e.target.classList.contains("assignment")) {
+        e.dataTransfer.setData("text/plain", e.target.dataset.empId);
+        e.target.classList.add("dragging");
+      }
+    }
+    function dragEnd(e) {
+      e.target.classList.remove("dragging");
+    }
+    function dragOver(e) {
+      e.preventDefault();
+      e.currentTarget.classList.add("drag-over");
+    }
+    function dragLeave(e) {
+      e.currentTarget.classList.remove("drag-over");
+    }
+    
+    // Dolgozó hozzárendelése egy projekthez
+    function dropEmployee(e) {
+      e.preventDefault();
+      e.currentTarget.classList.remove("drag-over");
+      const empId = e.dataTransfer.getData("text/plain");
+      const emp = findEmployeeById(empId);
+      if (!emp) {
+        alert("Hiba: a dolgozó nem található!");
+        return;
+      }
+      const perc = parseInt(prompt(`Hány százalékban szeretnéd hozzárendelni ${emp.name}-t? (Max: ${emp.available}%)`, "10"));
+      if (isNaN(perc) || perc <= 0 || perc > emp.available) {
+        alert("Érvénytelen százalék!");
+        return;
+      }
+      emp.available -= perc;
+      updateEmployeeUI(emp);
+      const projDiv = e.currentTarget;
+      const assignmentsDiv = projDiv.querySelector(".assignments");
+      const newAssignment = { 
+        id: assignmentIdCounter++, 
+        empId: emp.id, 
+        name: emp.name, 
+        role: emp.role, 
+        perc: perc, 
+        projectId: parseInt(projDiv.dataset.projectId)
+      };
+      const projObj = projects.find(p => p.id === parseInt(projDiv.dataset.projectId));
+      if (projObj) {
+        projObj.assignments.push(newAssignment);
+      }
+      const assignDiv = document.createElement("div");
+      assignDiv.className = "assignment";
+      assignDiv.textContent = `${emp.name} - ${perc}% (${emp.role})`;
+      assignDiv.dataset.assignmentId = newAssignment.id;
+      assignDiv.draggable = true;
+      assignDiv.addEventListener("dragstart", assignmentDragStart);
+      assignDiv.addEventListener("dragend", assignmentDragEnd);
+      assignmentsDiv.appendChild(assignDiv);
+    }
+    
+    // Segédfüggvény: dolgozó keresése
+    function findEmployeeById(id) {
+      for (const role in employees) {
+        for (const emp of employees[role]) {
+          if (emp.id == id) return emp;
+        }
+      }
+      return null;
+    }
+    
+    // Dolgozói UI frissítése
+    function updateEmployeeUI(emp) {
+      const empDivs = document.querySelectorAll(`[data-emp-id='${emp.id}']`);
+      empDivs.forEach(div => {
+        div.textContent = `${emp.name} (${emp.available}%)`;
+      });
+    }
+    
+    // Assignment drag események
+    function assignmentDragStart(e) {
+      const data = { assignmentId: e.target.dataset.assignmentId };
+      e.dataTransfer.setData("assignment", JSON.stringify(data));
+      e.target.classList.add("dragging");
+    }
+    function assignmentDragEnd(e) {
+      e.target.classList.remove("dragging");
+    }
+    function assignmentReturnDragOver(e) {
+      if (e.dataTransfer.types.includes("assignment")) {
+        e.preventDefault();
+        e.currentTarget.classList.add("drag-over");
+      }
+    }
+    function assignmentReturnDragLeave(e) {
+      e.currentTarget.classList.remove("drag-over");
+    }
+    function assignmentReturnDrop(e) {
+      e.preventDefault();
+      e.currentTarget.classList.remove("drag-over");
+      const dataStr = e.dataTransfer.getData("assignment");
+      if (!dataStr) return;
+      const data = JSON.parse(dataStr);
+      const assignmentId = data.assignmentId;
+      const assignElem = document.querySelector(`[data-assignment-id='${assignmentId}']`);
+      if (!assignElem) {
+        alert("A hozzárendelt elem nem található.");
+        return;
+      }
+      let targetEmpId = e.currentTarget.dataset.empId;
+      let found = false;
+      let projForAssignment = null;
+      let assignmentObj = null;
+      for (let proj of projects) {
+        for (let i = 0; i < proj.assignments.length; i++) {
+          if (proj.assignments[i].id == assignmentId) {
+            assignmentObj = proj.assignments[i];
+            projForAssignment = proj;
+            found = true;
+            break;
+          }
+        }
+        if (found) break;
+      }
+      if (!found) {
+        alert("Nem található a hozzárendelt adat a projektben.");
+        return;
+      }
+      if (targetEmpId != assignmentObj.empId) {
+        alert("Ez nem a megfelelő dolgozó, akihez az erőforrás van rendelve.");
+        return;
+      }
+      let returnPerc = parseInt(prompt("Hány százalékot szeretnél visszatenni?", ""));
+      if (isNaN(returnPerc) || returnPerc <= 0) {
+        alert("Érvénytelen százalék.");
+        return;
+      }
+      if (returnPerc > assignmentObj.perc) {
+        returnPerc = assignmentObj.perc;
+      }
+      assignmentObj.perc -= returnPerc;
+      let emp = findEmployeeById(assignmentObj.empId);
+      if (emp) {
+        emp.available += returnPerc;
+      }
+      if (assignmentObj.perc <= 0) {
+        assignElem.parentElement.removeChild(assignElem);
+        projForAssignment.assignments = projForAssignment.assignments.filter(a => a.id != assignmentId);
+      } else {
+        assignElem.textContent = `${assignmentObj.name} - ${assignmentObj.perc}% (${assignmentObj.role})`;
+      }
+      updateEmployeeUI(emp);
+    }
+    
+    // Projekt-összehasonlító diagram generálása
+    function generateComparisonChart() {
+      const projectTotals = projects.map(p => {
+        let total = 0;
+        if (p.assignments && p.assignments.length > 0) {
+          p.assignments.forEach(assign => {
+            total += assign.perc;
+          });
+        }
+        return { id: p.id, name: p.name, total: total };
+      });
+      if (projectTotals.length === 0) {
+        alert("Nincs olyan projekt, amelyből összehasonlítást lehetne készíteni.");
+        return;
+      }
+      const maxTotal = Math.max(...projectTotals.map(pt => pt.total));
+      const containerWidth = 800;
+      const compContainer = document.getElementById("comparisonContainer");
+      compContainer.innerHTML = "<h2>Projekt-összehasonlító diagram</h2>";
+      compContainer.style.width = containerWidth + "px";
+      projectTotals.forEach(pt => {
+        const rowDiv = document.createElement("div");
+        rowDiv.style.position = "relative";
+        rowDiv.style.height = "30px";
+        rowDiv.style.marginBottom = "5px";
+        rowDiv.style.lineHeight = "30px";
+        const labelDiv = document.createElement("div");
+        labelDiv.style.position = "absolute";
+        labelDiv.style.left = "0";
+        labelDiv.style.top = "0";
+        labelDiv.style.width = "150px";
+        labelDiv.style.textAlign = "right";
+        labelDiv.style.paddingRight = "10px";
+        labelDiv.textContent = pt.name;
+        rowDiv.appendChild(labelDiv);
+        const barDiv = document.createElement("div");
+        barDiv.style.position = "absolute";
+        barDiv.style.left = "160px";
+        barDiv.style.height = "100%";
+        let barWidth = maxTotal > 0 ? (pt.total / maxTotal) * (containerWidth - 160) : 0;
+        barDiv.style.width = barWidth + "px";
+        barDiv.style.backgroundColor = "#005baa";
+        barDiv.style.color = "#fff";
+        barDiv.style.textAlign = "center";
+        barDiv.style.borderRadius = "3px";
+        barDiv.textContent = pt.total + "%";
+        rowDiv.appendChild(barDiv);
+        compContainer.appendChild(rowDiv);
+      });
+    }
+    
+    // Navigáció: oldalbetöltéskor dolgozói lista és projektek renderelése
+    window.onload = function() {
+      initEmployeeList();
+      renderProjects();
+      showMainScreen();
+    };
+    
+    function showMainScreen() {
+      document.getElementById("mainScreen").style.display = "flex";
+      document.getElementById("ganttScreen").style.display = "none";
+    }
+    function showGanttScreen() {
+      document.getElementById("mainScreen").style.display = "none";
+      document.getElementById("ganttScreen").style.display = "block";
+    }
+    
+    // Állapot mentése
+    function saveState() {
+      const state = {
+        employees: employees,
+        projects: projects,
+        employeeIdCounter: employeeIdCounter,
+        assignmentIdCounter: assignmentIdCounter
+      };
+      localStorage.setItem("projectState", JSON.stringify(state));
+      alert("Állapot mentve.");
+    }
+    
+    // Állapot betöltése
+    function loadState() {
+      const stateStr = localStorage.getItem("projectState");
+      if (!stateStr) {
+        alert("Nincs elmentett állapot.");
+        return;
+      }
+      const state = JSON.parse(stateStr);
+      employees = state.employees;
+      projects = state.projects;
+      employeeIdCounter = state.employeeIdCounter;
+      assignmentIdCounter = state.assignmentIdCounter;
+      initEmployeeList();
+      renderProjects();
+      alert("Állapot betöltve.");
+    }
+    
+    // PDF mentés
+    function savePDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.setFont("Helvetica");
+      projects.forEach((proj, index) => {
+        if (index > 0) doc.addPage();
+        doc.setFontSize(18);
+        doc.text(`Projekt ${proj.id}: ${proj.name}`, 10, 20);
+        doc.setFontSize(12);
+        doc.setFillColor(230, 230, 230);
+        doc.rect(10, 30, 50, 10, "FD");
+        doc.text(`Sorszám: ${proj.id}`, 12, 38);
+        doc.rect(10, 42, 100, 10, "FD");
+        doc.text(`Név: ${proj.name}`, 12, 50);
+        const startDate = (() => {
+          const input = document.getElementById(`start-date-${proj.id}`);
+          return input && input.value ? input.value : "Nincs megadva";
+        })();
+        doc.rect(10, 54, 80, 10, "FD");
+        doc.text(`Kezdő dátum: ${startDate}`, 12, 62);
+        const endDate = (() => {
+          const input = document.getElementById(`end-date-${proj.id}`);
+          return input && input.value ? input.value : "Nincs megadva";
+        })();
+        doc.rect(10, 66, 80, 10, "FD");
+        doc.text(`Végdátum: ${endDate}`, 12, 74);
+        doc.setFontSize(14);
+        doc.text("Hozzárendelt dolgozók:", 10, 85);
+        doc.setFontSize(12);
+        let y = 95;
+        if (proj.assignments && proj.assignments.length > 0) {
+          proj.assignments.forEach(assign => {
+            doc.text(`${assign.name} - ${assign.perc}% (${assign.role})`, 10, y);
+            y += 8;
+          });
+        } else {
+          doc.text("Nincs hozzárendelt dolgozó.", 10, y);
+        }
+      });
+      doc.save("projektek.pdf");
+    }
+  </script>
+</body>
+</html>
