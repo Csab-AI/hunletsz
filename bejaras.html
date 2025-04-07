@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>360° Panorama – Flood Fill, 3D Modell Betöltés & Chatbot/Asszisztens</title>
+    <style>
+      body { margin: 0; overflow: hidden; }
+      canvas { display: block; }
+      #controls {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 250;
+        background: rgba(255, 255, 255, 0.95);
+        padding: 10px;
+        border-radius: 5px;
+        font-family: sans-serif;
+        max-width: 220px;
+        max-height: 90vh;
+        overflow-y: auto;
+      }
+      #controls label,
+      #controls input,
+      #controls select,
+      #controls button,
+      #controls span {
+        margin: 5px;
+        display: block;
+      }
+      /* Overlay canvas */
+      #overlayCanvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: 150;
+        pointer-events: none;
+      }
+      
+      /* Chat ikon styling */
+      #chatIcon {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        width: 50px;
+        height: 50px;
+        background: #007bff;
+        color: #fff;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        z-index: 300;
+        font-size: 24px;
+      }
+      
+      /* Chat ablak styling */
+      #chatWindow {
+        position: fixed;
+        bottom: 80px;
+        right: 20px;
+        width: 300px;
+        max-height: 400px;
+        background: rgba(255,255,255,0.95);
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        z-index: 300;
+        display: none;
+        flex-direction: column;
+      }
+      #chatWindow.active {
+        display: flex;
+      }
+      #chatHeader {
+        background: #007bff;
+        color: #fff;
+        padding: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-top-left-radius: 5px;
+        border-top-right-radius: 5px;
+      }
+      #chatMessages {
+        flex: 1;
+        padding: 10px;
+        overflow-y: auto;
+        font-size: 14px;
+        background: #f9f9f9;
+      }
+      #chatInputArea {
+        display: flex;
+        padding: 10px;
+        border-top: 1px solid #ccc;
+      }
+      #chatInputArea input {
+        flex: 1;
+        padding: 5px;
+        border: 1px solid #ccc;
+        border-radius: 3px;
+      }
+      #chatInputArea button {
+        margin-left: 5px;
+        padding: 5px 10px;
+        border: none;
+        background: #007bff;
+        color: #fff;
+        border-radius: 3px;
+        cursor: pointer;
+      }
+      
+      /* Virtual Assistant ikon styling */
+      #vaIcon {
+        position: fixed;
+        bottom: 20px;
+        right: 80px; /* eltolva a chat ikontól balra */
+        width: 50px;
+        height: 50px;
+        background: #28a745;
+        color: #fff;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        z-index: 300;
+        font-size: 24px;
+      }
+      
+      /* Virtual Assistant ablak styling */
+      #vaWindow {
+        position: fixed;
+        bottom: 80px;
+        right: 80px;
+        width: 400px;
+        height: 300px;
+        background: rgba(255,255,255,0.95);
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        z-index: 300;
+        display: none;
+        flex-direction: column;
+      }
+      #vaHeader {
+        background: #28a745;
+        color: #fff;
+        padding: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-top-left-radius: 5px;
+        border-top-right-radius: 5px;
+      }
+      #vaIframe {
+        flex: 1;
+        width: 100%;
+        border: none;
+      }
+      
+      /* Használati útmutató link styling */
+      #usageGuideLink {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        background: #ffc107;
+        color: #000;
+        padding: 10px 15px;
+        border-radius: 5px;
+        cursor: pointer;
+        z-index: 300;
+        font-size: 14px;
+      }
+      
+      /* Használati útmutató modal styling */
+      #usageGuideModal {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 80%;
+        max-width: 600px;
+        max-height: 80%;
+        background: #fff;
+        border: 2px solid #007bff;
+        border-radius: 5px;
+        padding: 20px;
+        overflow-y: auto;
+        z-index: 400;
+        display: none;
+      }
+      #usageGuideModal h2 {
+        margin-top: 0;
+      }
+      #usageGuideModal button {
+        margin-top: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="controls">
+      <h3>Flood Fill</h3>
+      <button id="toggleFloodFill">Flood Fill Mode: OFF</button>
+      <br>
+      <h3>Flood Fill Settings</h3>
+      <label for="toleranceSlider">Tolerance:</label>
+      <input type="range" id="toleranceSlider" min="0" max="255" value="32">
+      <span id="toleranceValue">32</span>
+      <br>
+      <label for="colorPicker">Fill Color:</label>
+      <input type="color" id="colorPicker" value="#0000FF">
+      <br>
+      <label for="satReductionSlider">Sat Reduction (%):</label>
+      <input type="range" id="satReductionSlider" min="0" max="100" value="30">
+      <span id="satReductionValue">30</span>
+      <br>
+      <label for="ralSelect">RAL Palette:</label>
+      <select id="ralSelect">
+        <option value="custom">Custom</option>
+      </select>
+      <span id="ralInfo"></span>
+      <br>
+      <button id="undoButton">Undo</button>
+      <button id="resetButton">Reset</button>
+      <hr>
+      <h3>3D Modell Betöltése</h3>
+      <label for="modelUpload">Upload glTF/GLB Model:</label>
+      <input type="file" id="modelUpload" accept=".gltf,.glb">
+      <br>
+      <label>Placement:</label>
+      <label><input type="radio" name="placement" value="floor" checked> Floor</label>
+      <label><input type="radio" name="placement" value="wall"> Wall</label>
+      <br>
+      <button id="loadModel">Load Model</button>
+      <h4>Transform Mode</h4>
+      <button id="modeTranslate">Translate</button>
+      <button id="modeRotate">Rotate</button>
+      <button id="modeScale">Scale</button>
+      <p>Használd a Transform Controls-t (drag, rotate, scale) a modell manipulálásához.</p>
+    </div>
+    
+    <!-- Three.js WebGL canvas -->
+    <canvas id="webglCanvas"></canvas>
+    <!-- Overlay canvas -->
+    <canvas id="overlayCanvas"></canvas>
+    
+    <!-- Chat UI elemek -->
+    <div id="chatIcon">&#128172;</div>
+    <div id="chatWindow">
+      <div id="chatHeader">
+        <span>Chatbot</span>
+        <button id="chatCloseButton">X</button>
+      </div>
+      <div id="chatMessages"></div>
+      <div id="chatInputArea">
+        <input type="text" id="chatInput" placeholder="Írj ide...">
+        <button id="chatSendButton">Küldés</button>
+      </div>
+    </div>
+    
+    <!-- Virtual Assistant UI elemek -->
+    <div id="vaIcon">&#129302;</div>
+    <div id="vaWindow">
+      <div id="vaHeader">
+        <span>Virtuális Asszisztens</span>
+        <button id="vaCloseButton">X</button>
+      </div>
+      <iframe id="vaIframe" src="https://share.synthesia.io/1e6461e1-a2ef-473b-9ede-24172d5f02c2" allowfullscreen></iframe>
+    </div>
+    
+    <!-- Használati útmutató link -->
+    <div id="usageGuideLink">Használati útmutató</div>
+    
+    <!-- Használati útmutató modal -->
+    <div id="usageGuideModal">
+      <h2>Használati útmutató</h2>
+      <p><strong>360° Panoráma:</strong><br>
+         A kép egy gömbön van leképezve. Az egérrel kattintva és húzva forog a nézet, a görgővel pedig zoomolhatsz.</p>
+      <p><strong>Flood Fill Mód:</strong><br>
+         A "Flood Fill Mode" gomb bekapcsolásával aktiválhatod a területkitöltést. Kattintás esetén a kiválasztott terület a kiválasztott színnel töltődik ki.<br>
+         <em>Tolerance:</em> A kitöltéshez szükséges szín egyezés mértéke.<br>
+         <em>Sat Reduction (Szaturáció csökkentése):</em> A kitöltő szín telítettségének csökkentése a harmonikusabb megjelenésért.</p>
+      <p><strong>3D Modell Betöltése:</strong><br>
+         A "Upload glTF/GLB Model" gombbal tölthetsz fel 3D modelleket. A "Placement" beállítás (Floor vagy Wall) határozza meg, hová kerül a modell.<br>
+         A "Transform Mode" gombokkal (Translate, Rotate, Scale) módosíthatod a modell pozícióját, forgatását és méretét.</p>
+      <p><strong>Chatbot:</strong><br>
+         A jobb alsó sarkában lévő kék ikonra kattintva megjelenik a chatbot ablak. A chatbot kizárólag az alábbi kérdésekre ad választ:
+         <br>"mikor kész", "mikor lesz az átadás", "mikor készül el" stb. – ezekre a kérdésekre a válasz:<br>
+         "Várhatóan a szálloda 2025. III. negyedévében készül el és vehetik birtokba a vendégek!"<br>
+         Minden más kérdésre azt írja: "Jelenleg erre a kérdésre még nem vagyok felkészítve!"</p>
+      <p><strong>Virtuális Asszisztens:</strong><br>
+         A zöld ikonra kattintva megjelenik a virtuális asszisztens ablak, mely egy videót tartalmaz a Synthesia platformról.
+         A videó egy teszt videó jelenleg, hogy ez a funkció hogy integrálható bele a 360 fokos képbe.</p>
+      <p><strong>További lehetőségek:</strong><br>
+         A jövőben a chatbot kibővíthető úgy, hogy a teljes műszaki dokumentáció alapján válaszoljon, illetve a virtuális asszisztens szobákra, részletekre szabva információkat nyújtson.</p>
+      <button id="usageGuideCloseButton">Bezár</button>
+    </div>
+    
+    <!-- Three.js könyvtárak -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.140.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.140.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.140.0/examples/js/controls/TransformControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.140.0/examples/js/loaders/GLTFLoader.js"></script>
+    
+    <script>
+      // Global Three.js változók
+      let scene, camera, renderer, orbitControls, raycaster, mouse;
+      let sphere, texture;
+      let textureCanvas, textureCtx;
+      let originalImageData = null;
+      let transformControls = null; // a 3D modellhez
+      let loadedModel = null;
+      let undoStack = [];
+      
+      // Flood Fill Mode kapcsoló
+      let floodFillMode = false;
+      const toggleFloodFillBtn = document.getElementById("toggleFloodFill");
+      toggleFloodFillBtn.addEventListener("click", () => {
+        floodFillMode = !floodFillMode;
+        toggleFloodFillBtn.textContent = "Flood Fill Mode: " + (floodFillMode ? "ON" : "OFF");
+      });
+      
+      // Vezérlő elemek a Flood Fill beállításokhoz
+      const toleranceSlider = document.getElementById("toleranceSlider");
+      const toleranceValue = document.getElementById("toleranceValue");
+      const colorPicker = document.getElementById("colorPicker");
+      const satReductionSlider = document.getElementById("satReductionSlider");
+      const satReductionValue = document.getElementById("satReductionValue");
+      const ralSelect = document.getElementById("ralSelect");
+      const ralInfo = document.getElementById("ralInfo");
+      const resetButton = document.getElementById("resetButton");
+      const undoButton = document.getElementById("undoButton");
+      
+      toleranceSlider.addEventListener("input", () => {
+        toleranceValue.textContent = toleranceSlider.value;
+      });
+      satReductionSlider.addEventListener("input", () => {
+        satReductionValue.textContent = satReductionSlider.value;
+      });
+      
+      // RAL színpaletta – rövidített lista
+      const ralColors = [
+        { code: "RAL 1000", name: "Green Beige", hex: "#BEBD7F" },
+        { code: "RAL 1001", name: "Beige", hex: "#C2B078" },
+        { code: "RAL 1002", name: "Sand Yellow", hex: "#C6A664" },
+        { code: "RAL 1003", name: "Signal Yellow", hex: "#F4D03F" },
+        { code: "RAL 1004", name: "Golden Yellow", hex: "#E2B007" },
+        { code: "RAL 1005", name: "Honey Yellow", hex: "#CDA434" },
+        { code: "RAL 1006", name: "Maize Yellow", hex: "#D4A017" },
+        { code: "RAL 1007", name: "Daffodil Yellow", hex: "#E6BF2E" }
+      ];
+      ralColors.forEach(color => {
+        const option = document.createElement("option");
+        option.value = color.hex;
+        option.textContent = `${color.code} - ${color.name}`;
+        ralSelect.appendChild(option);
+      });
+      ralSelect.addEventListener("change", () => {
+        if (ralSelect.value !== "custom") {
+          colorPicker.value = ralSelect.value;
+          const selected = ralColors.find(c => c.hex.toLowerCase() === ralSelect.value.toLowerCase());
+          ralInfo.textContent = selected ? ` (${selected.code} - ${selected.name})` : "";
+        } else {
+          ralInfo.textContent = "";
+        }
+      });
+      
+      // Segédfüggvények a színkezeléshez
+      function hexToRGBA(hex) {
+        const r = parseInt(hex.substr(1, 2), 16);
+        const g = parseInt(hex.substr(3, 2), 16);
+        const b = parseInt(hex.substr(5, 2), 16);
+        return { r, g, b, a: 255 };
+      }
+      function hexToHSL(H) {
+        let r = 0, g = 0, b = 0;
+        if (H.length === 4) {
+          r = "0x" + H[1] + H[1];
+          g = "0x" + H[2] + H[2];
+          b = "0x" + H[3] + H[3];
+        } else if (H.length === 7) {
+          r = "0x" + H[1] + H[2];
+          g = "0x" + H[3] + H[4];
+          b = "0x" + H[5] + H[6];
+        }
+        r /= 255; g /= 255; b /= 255;
+        const cmin = Math.min(r, g, b);
+        const cmax = Math.max(r, g, b);
+        const delta = cmax - cmin;
+        let h = 0;
+        if (delta === 0) h = 0;
+        else if (cmax === r) h = ((g - b) / delta) % 6;
+        else if (cmax === g) h = (b - r) / delta + 2;
+        else h = (r - g) / delta + 4;
+        h = Math.round(h * 60);
+        if (h < 0) h += 360;
+        const l = (cmax + cmin) / 2;
+        const s = delta === 0 ? 0 : delta / (1 - Math.abs(2 * l - 1));
+        return { h, s: s * 100, l: l * 100 };
+      }
+      function HSLToHex(h, s, l) {
+        s /= 100; l /= 100;
+        const c = (1 - Math.abs(2 * l - 1)) * s;
+        const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+        const m = l - c / 2;
+        let r = 0, g = 0, b = 0;
+        if (0 <= h && h < 60) { r = c; g = x; b = 0; }
+        else if (60 <= h && h < 120) { r = x; g = c; b = 0; }
+        else if (120 <= h && h < 180) { r = 0; g = c; b = x; }
+        else if (180 <= h && h < 240) { r = 0; g = x; b = c; }
+        else if (240 <= h && h < 300) { r = x; g = 0; b = c; }
+        else { r = c; g = 0; b = x; }
+        r = Math.round((r + m) * 255);
+        g = Math.round((g + m) * 255);
+        b = Math.round((b + m) * 255);
+        return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase();
+      }
+      function adjustSaturation(fillHex, reductionPercent) {
+        let hsl = hexToHSL(fillHex);
+        hsl.s = hsl.s * (1 - reductionPercent / 100);
+        return HSLToHex(hsl.h, hsl.s, hsl.l);
+      }
+      
+      // Three.js inicializálása a panoráma számára
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 2000);
+      camera.position.set(0, 0, 0.1);
+      renderer = new THREE.WebGLRenderer({ antialias: true, canvas: document.getElementById("webglCanvas") });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      orbitControls = new THREE.OrbitControls(camera, renderer.domElement);
+      orbitControls.enableZoom = true;
+      orbitControls.enablePan = false;
+      orbitControls.rotateSpeed = -0.3;
+      raycaster = new THREE.Raycaster();
+      mouse = new THREE.Vector2();
+      
+      // Rejtett canvas a panoráma textúrához (a flood fill működéséhez)
+      textureCanvas = document.createElement("canvas");
+      textureCtx = textureCanvas.getContext("2d");
+      
+      // Betöltjük az alap 360° panorámaképet
+      const panoImg = new Image();
+      panoImg.src = "IMG_20250404_204022_140.JPG"; // Ez a kép neve
+      panoImg.onload = function() {
+        textureCanvas.width = panoImg.width;
+        textureCanvas.height = panoImg.height;
+        textureCtx.drawImage(panoImg, 0, 0);
+        originalImageData = textureCtx.getImageData(0, 0, textureCanvas.width, textureCanvas.height);
+        texture = new THREE.CanvasTexture(textureCanvas);
+        const geometry = new THREE.SphereGeometry(500, 60, 40);
+        geometry.scale(-1, 1, 1);
+        const material = new THREE.MeshBasicMaterial({ map: texture });
+        sphere = new THREE.Mesh(geometry, material);
+        scene.add(sphere);
+      };
+      
+      window.addEventListener("resize", onWindowResize, false);
+      function onWindowResize(){
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        overlayCanvas.width = window.innerWidth;
+        overlayCanvas.height = window.innerHeight;
+      }
+      
+      // Flood Fill (csak ha Flood Fill Mode be van kapcsolva)
+      renderer.domElement.addEventListener("click", (event) => {
+        if (!floodFillMode) return;
+        const currentState = textureCtx.getImageData(0, 0, textureCanvas.width, textureCanvas.height);
+        undoStack.push(currentState);
+        if (undoStack.length > 10) undoStack.shift();
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObject(sphere);
+        if (intersects.length > 0) {
+          const uv = intersects[0].uv;
+          const canvasX = Math.floor(uv.x * textureCanvas.width);
+          const canvasY = Math.floor((1 - uv.y) * textureCanvas.height);
+          const tol = parseInt(toleranceSlider.value);
+          const satRed = parseInt(satReductionSlider.value);
+          const adjustedFillHex = adjustSaturation(colorPicker.value, satRed);
+          const fillCol = hexToRGBA(adjustedFillHex);
+          floodFill(canvasX, canvasY, fillCol, tol);
+        }
+      });
+      
+      // Flood Fill algoritmus
+      function floodFill(startX, startY, fillColor, tolerance) {
+        const imageData = textureCtx.getImageData(0, 0, textureCanvas.width, textureCanvas.height);
+        const data = imageData.data;
+        const width = imageData.width;
+        const height = imageData.height;
+        const startIdx = (startY * width + startX) * 4;
+        const startColor = {
+          r: data[startIdx],
+          g: data[startIdx + 1],
+          b: data[startIdx + 2],
+          a: data[startIdx + 3]
+        };
+        if (colorMatch(startColor, fillColor, tolerance)) return;
+        const stack = [];
+        stack.push({ x: startX, y: startY });
+        while (stack.length) {
+          const { x, y } = stack.pop();
+          const idx = (y * width + x) * 4;
+          const currentColor = {
+            r: data[idx],
+            g: data[idx + 1],
+            b: data[idx + 2],
+            a: data[idx + 3]
+          };
+          if (colorMatch(currentColor, startColor, tolerance)) {
+            data[idx] = fillColor.r;
+            data[idx + 1] = fillColor.g;
+            data[idx + 2] = fillColor.b;
+            data[idx + 3] = fillColor.a;
+            if (x > 0) stack.push({ x: x - 1, y });
+            if (x < width - 1) stack.push({ x: x + 1, y });
+            if (y > 0) stack.push({ x, y: y - 1 });
+            if (y < height - 1) stack.push({ x, y: y + 1 });
+          }
+        }
+        textureCtx.putImageData(imageData, 0, 0);
+        texture.needsUpdate = true;
+      }
+      
+      function colorMatch(c1, c2, tolerance) {
+        return Math.abs(c1.r - c2.r) <= tolerance &&
+               Math.abs(c1.g - c2.g) <= tolerance &&
+               Math.abs(c1.b - c2.b) <= tolerance &&
+               Math.abs(c1.a - c2.a) <= tolerance;
+      }
+      
+      // Undo gomb (max 10 lépésig)
+      undoButton.addEventListener("click", () => {
+        if (undoStack.length > 0) {
+          const prevState = undoStack.pop();
+          textureCtx.putImageData(prevState, 0, 0);
+          texture.needsUpdate = true;
+        }
+      });
+      
+      // Reset gomb – csak a panoráma eredeti állapotát állítja vissza
+      resetButton.addEventListener("click", () => {
+        if (originalImageData) {
+          textureCtx.putImageData(originalImageData, 0, 0);
+          texture.needsUpdate = true;
+          undoStack = [];
+        }
+      });
+      
+      // 3D Modell betöltése glTF/GLB fájlból
+      const modelUpload = document.getElementById("modelUpload");
+      const loadModelBtn = document.getElementById("loadModel");
+      loadModelBtn.addEventListener("click", () => {
+        const file = modelUpload.files[0];
+        if (!file) {
+          alert("Kérlek, válassz egy glTF/GLB modellt!");
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const contents = e.target.result;
+          const gltfLoader = new THREE.GLTFLoader();
+          gltfLoader.parse(contents, "", function(gltf) {
+            if (loadedModel) {
+              scene.remove(loadedModel);
+              if (transformControls) scene.remove(transformControls);
+            }
+            loadedModel = gltf.scene;
+            const placement = document.querySelector('input[name="placement"]:checked').value;
+            if (placement === "floor") {
+              loadedModel.position.set(0, -10, -50);
+              loadedModel.rotation.set(0, 0, 0);
+            } else if (placement === "wall") {
+              loadedModel.position.set(0, 0, -50);
+              loadedModel.rotation.set(0, Math.PI, 0);
+            }
+            loadedModel.scale.set(10, 10, 10);
+            scene.add(loadedModel);
+            transformControls = new THREE.TransformControls(camera, renderer.domElement);
+            transformControls.attach(loadedModel);
+            scene.add(transformControls);
+            transformControls.addEventListener('mouseDown', function() {
+              orbitControls.enabled = false;
+            });
+            transformControls.addEventListener('mouseUp', function() {
+              orbitControls.enabled = true;
+            });
+          }, function(error) {
+            console.error("Modell betöltési hiba:", error);
+          });
+        };
+        if (file.name.endsWith(".glb")) {
+          reader.readAsArrayBuffer(file);
+        } else {
+          reader.readAsText(file);
+        }
+      });
+      
+      // Transform Mode gombok
+      const modeTranslateBtn = document.getElementById("modeTranslate");
+      const modeRotateBtn = document.getElementById("modeRotate");
+      const modeScaleBtn = document.getElementById("modeScale");
+      modeTranslateBtn.addEventListener("click", () => {
+        if (transformControls) transformControls.setMode("translate");
+      });
+      modeRotateBtn.addEventListener("click", () => {
+        if (transformControls) transformControls.setMode("rotate");
+      });
+      modeScaleBtn.addEventListener("click", () => {
+        if (transformControls) transformControls.setMode("scale");
+      });
+      
+      // Chat UI integráció
+      const chatIcon = document.getElementById("chatIcon");
+      const chatWindow = document.getElementById("chatWindow");
+      const chatCloseButton = document.getElementById("chatCloseButton");
+      const chatSendButton = document.getElementById("chatSendButton");
+      const chatInput = document.getElementById("chatInput");
+      const chatMessages = document.getElementById("chatMessages");
+      
+      chatIcon.addEventListener("click", () => {
+        chatWindow.classList.add("active");
+      });
+      
+      chatCloseButton.addEventListener("click", () => {
+        chatWindow.classList.remove("active");
+      });
+      
+      chatSendButton.addEventListener("click", () => {
+        const userMessage = chatInput.value.trim();
+        if (!userMessage) return;
+        
+        // Felhasználói üzenet megjelenítése
+        const messageElem = document.createElement("div");
+        messageElem.textContent = "Te: " + userMessage;
+        chatMessages.appendChild(messageElem);
+        chatInput.value = "";
+        
+        // A kérdés ellenőrzése: ha a felhasználó "mikor kész", "mikor lesz az átadás" vagy "mikor készül el" kérdéseket tesz fel,
+        // akkor a chatbot a várt választ adja vissza, egyébként azt írja, hogy nincs felkészítve erre a kérdésre.
+        const validRegex = /mikor.*(kész|átadás)/i;
+        const responseElem = document.createElement("div");
+        if (validRegex.test(userMessage)) {
+          responseElem.textContent = "Chatbot: Várhatóan a szálloda 2025. III. negyedévében készül el és vehetik birtokba a vendégek!";
+        } else {
+          responseElem.textContent = "Chatbot: Jelenleg erre a kérdésre még nem vagyok felkészítve!";
+        }
+        chatMessages.appendChild(responseElem);
+      });
+      
+      // Virtual Assistant UI integráció
+      const vaIcon = document.getElementById("vaIcon");
+      const vaWindow = document.getElementById("vaWindow");
+      const vaCloseButton = document.getElementById("vaCloseButton");
+      
+      vaIcon.addEventListener("click", () => {
+        vaWindow.style.display = "flex";
+      });
+      
+      vaCloseButton.addEventListener("click", () => {
+        vaWindow.style.display = "none";
+      });
+      
+      // Használati útmutató UI integráció
+      const usageGuideLink = document.getElementById("usageGuideLink");
+      const usageGuideModal = document.getElementById("usageGuideModal");
+      const usageGuideCloseButton = document.getElementById("usageGuideCloseButton");
+      
+      usageGuideLink.addEventListener("click", () => {
+        usageGuideModal.style.display = "block";
+      });
+      
+      usageGuideCloseButton.addEventListener("click", () => {
+        usageGuideModal.style.display = "none";
+      });
+      
+      function animate() {
+        requestAnimationFrame(animate);
+        orbitControls.update();
+        if (transformControls) transformControls.update();
+        renderer.render(scene, camera);
+      }
+      animate();
+    </script>
+  </body>
+</html>
