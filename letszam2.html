@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3Hunep - Erőforrás Hozzárendelés</title>
+    <title>Hunep - Erőforrás Hozzárendelés</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         * {
@@ -638,6 +638,7 @@
         let employees = [];
         let draggedEmployee = null;
         let currentDropTarget = null;
+        let pendingEmployeeId = null; // ID tárolása a modal kezeléshez
 
         // Inicializálás
         document.addEventListener('DOMContentLoaded', function() {
@@ -971,6 +972,8 @@
 
             if (draggedEmployee) {
                 currentDropTarget = e.currentTarget;
+                // mentjük a dolgozó id-ját, mert a dragend esemény törli a draggedEmployee változót
+                pendingEmployeeId = draggedEmployee.id;
                 showPercentageModal();
             }
         }
@@ -985,6 +988,7 @@
         function closePercentageModal() {
             document.getElementById('percentageModal').style.display = 'none';
             currentDropTarget = null;
+            pendingEmployeeId = null;
             document.getElementById('percentageInput').value = '100';
         }
 
@@ -996,9 +1000,15 @@
                 return;
             }
 
+            if (!currentDropTarget) {
+                alert('Nincs kiválasztott projekt a hozzárendeléshez.');
+                return;
+            }
+
             const projectId = parseInt(currentDropTarget.dataset.projectId);
             const project = projects.find(p => p.id === projectId);
-            const employee = employees.find(e => e.id === draggedEmployee.id);
+            // használjuk a pendingEmployeeId-ot, mert draggedEmployee null lehet a dragend miatt
+            const employee = employees.find(e => e.id === pendingEmployeeId);
 
             if (project && employee) {
                 // Ellenőrizzük, hogy már hozzá van-e rendelve
@@ -1019,8 +1029,12 @@
                 // FONTOS: Mindkét oldalt frissíteni kell!
                 renderProjects();
                 renderEmployees();
+            } else {
+                alert('Hiba: dolgozó vagy projekt nem található.');
             }
 
+            // tisztítás
+            pendingEmployeeId = null;
             closePercentageModal();
         }
 
