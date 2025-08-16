@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>2Hunep - Erőforrás Hozzárendelés</title>
+    <title>Hunep - Erőforrás Hozzárendelés</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         * {
@@ -274,26 +274,49 @@
         }
 
         .employee {
-            background: #17a2b8;
+            background: linear-gradient(to right, #dc3545 0%, #dc3545 var(--capacity-used, 0%), #17a2b8 var(--capacity-used, 0%), #17a2b8 100%);
             color: white;
             padding: 8px 15px;
             margin: 5px;
             border-radius: 4px;
             cursor: grab;
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
             transition: all 0.3s ease;
             font-size: 13px;
             user-select: none;
+            position: relative;
         }
 
         .employee:hover {
-            background: #138496;
             transform: translateY(-1px);
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
 
         .employee.dragging {
             opacity: 0.5;
+        }
+
+        .employee-delete {
+            background: rgba(255,255,255,0.3);
+            border: none;
+            color: white;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .employee-delete:hover {
+            background: rgba(255,255,255,0.5);
+            transform: scale(1.1);
         }
 
         .modal {
@@ -762,15 +785,41 @@
                 groupedEmployees[role].sort((a, b) => a.name.localeCompare(b.name, 'hu'));
 
                 groupedEmployees[role].forEach(emp => {
+                    // Kapacitás számítása
+                    let totalCapacity = 0;
+                    const empProjects = [];
+                    projects.forEach(project => {
+                        const assignment = project.assignments.find(a => a.id === emp.id);
+                        if (assignment) {
+                            totalCapacity += assignment.perc;
+                            empProjects.push(`${project.name}: ${assignment.perc}%`);
+                        }
+                    });
+
                     const empDiv = document.createElement('div');
                     empDiv.className = 'employee';
                     empDiv.draggable = true;
                     empDiv.dataset.employeeId = emp.id;
+                    
+                    // CSS változó beállítása a kapacitáshoz
+                    empDiv.style.setProperty('--capacity-used', `${Math.min(totalCapacity, 100)}%`);
+                    
                     empDiv.innerHTML = `
-                        ${emp.name}
+                        ${emp.name} ${totalCapacity > 0 ? `(${totalCapacity}%)` : ''}
                         <button class="employee-delete" onclick="deleteEmployee(${emp.id})" title="Dolgozó törlése">×</button>
                     `;
-                    empDiv.title = `${emp.name} - ${emp.role}`;
+                    
+                    // Tooltip frissítése
+                    let tooltipText = `${emp.name} - ${emp.role}`;
+                    if (totalCapacity > 0) {
+                        tooltipText += `\nKapacitás: ${totalCapacity}%`;
+                        if (empProjects.length > 0) {
+                            tooltipText += `\nProjektek:\n${empProjects.join('\n')}`;
+                        }
+                    } else {
+                        tooltipText += '\nNincs hozzárendelés';
+                    }
+                    empDiv.title = tooltipText;
 
                     // Drag event listenerek
                     empDiv.addEventListener('dragstart', employeeDragStart);
