@@ -882,6 +882,7 @@
             if (confirm('Biztosan törli ezt a projektet? Az összes hozzárendelés is elvész!')) {
                 projects = projects.filter(p => p.id !== projectId);
                 renderProjects();
+                renderEmployees(); // Ez is hiányzott!
             }
         }
 
@@ -891,6 +892,7 @@
             if (project) {
                 project.assignments = project.assignments.filter(a => a.id !== employeeId);
                 renderProjects();
+                renderEmployees(); // Ez is hiányzott!
             }
         }
 
@@ -1014,7 +1016,9 @@
                     });
                 }
 
+                // FONTOS: Mindkét oldalt frissíteni kell!
                 renderProjects();
+                renderEmployees();
             }
 
             closePercentageModal();
