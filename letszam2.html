@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hunep - Erőforrás Hozzárendelés</title>
+    <title>5Hunep - Erőforrás Hozzárendelés</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         * {
@@ -893,8 +893,37 @@
             if (project) {
                 project.assignments = project.assignments.filter(a => a.id !== employeeId);
                 renderProjects();
-                renderEmployees(); // Ez is hiányzott!
+                renderEmployees();
             }
+        }
+
+        // Dolgozó törlése
+        function deleteEmployee(employeeId) {
+            const employee = employees.find(e => e.id === employeeId);
+            if (!employee) return;
+
+            const hasAssignments = projects.some(project =>
+                project.assignments.some(assignment => assignment.id === employeeId)
+            );
+
+            let confirmMessage = `Biztosan törli ${employee.name} dolgozót?`;
+            if (hasAssignments) {
+                confirmMessage += '\n\nFigyelem: A dolgozó projektekhez van hozzárendelve. Minden hozzárendelés is törlődik!';
+            }
+
+            if (!confirm(confirmMessage)) return;
+
+            // Dolgozó eltávolítása
+            employees = employees.filter(e => e.id !== employeeId);
+
+            // Hozzárendelések eltávolítása minden projektből
+            projects.forEach(project => {
+                project.assignments = project.assignments.filter(assignment => assignment.id !== employeeId);
+            });
+
+            // UI frissítése
+            renderEmployees();
+            renderProjects();
         }
 
         // Új projekt létrehozása
