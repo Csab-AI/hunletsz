@@ -1,41 +1,1334 @@
-    // Projekt név frissítése (onblur)
-    function updateProjectName(h3) {
-      let projectElem = h3.closest('.project');
-      let projectId = projectElem.dataset.projectId;
-      let newName = h3.textContent.trim();
-      let proj = projects.find(p => p.id == projectId);
-      if (proj) {
-        proj.name = newName;
-      }
-    }
-    
-    // Projekt dátum frissítése
-    function updateProjectDate(input, type) {
-      let projectElem = input.closest('.project');
-      let projectId = projectElem.dataset.projectId;
-      let proj = projects.find(p => p.id == projectId);
-      if (proj) {
-        proj[type] = input.value;
-      }
-    }
-    
-    // Projekt törlése        projDiv.addEventListener("dragover", dragOver);
-        projDiv.addEventListener("dragleave", dragLeave);
-        projDiv.addEventListener("drop", dropEmployee);
-        
-        // Meglévő assignments megjelenítése
-        const assignmentsDiv = projDiv.querySelector(".assignments");
-        if (proj.assignments && proj.assignments.length > 0) {
-          proj.assignments.forEach(assignment => {
-            const assignDiv = document.createElement("div");
-            assignDiv.className = "assignment";
-            assignDiv.textContent = `${assignment.name} - ${assignment.perc}% (${assignment.role})`;
-            assignDiv.dataset.assignmentId = assignment.id;
-            assignDiv.draggable = true;
-            assignDiv.addEventListener("dragstart", assignmentDragStart);
-            assignDiv.addEventListener("dragend", assignmentDragEnd);
-            assignmentsDiv.appendChild(assignDiv);
-          });
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hunep - Erőforrás Hozzárendelés</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-        
-        projectsSection.appendChild(projDiv);
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        header {
+            background: linear-gradient(90deg, #2e5bba, #1e4a8c);
+            color: white;
+            padding: 15px 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .logo::before {
+            content: "🏗️";
+            font-size: 30px;
+        }
+
+        nav {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        nav button {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        nav button:hover {
+            background: rgba(255,255,255,0.2);
+            transform: translateY(-1px);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .section h2 {
+            color: #2e5bba;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e9ecef;
+            position: sticky;
+            top: 0;
+            background: white;
+            z-index: 10;
+        }
+
+        .create-section {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .create-section input {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            min-width: 150px;
+            flex: 1;
+        }
+
+        .btn {
+            background: #2e5bba;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        .btn:hover {
+            background: #1e4a8c;
+            transform: translateY(-1px);
+        }
+
+        .project {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            padding: 15px;
+            transition: all 0.3s ease;
+            min-height: 120px;
+        }
+
+        .project.drag-over {
+            border-color: #2e5bba;
+            background: #e7f1ff;
+            transform: scale(1.02);
+            box-shadow: 0 4px 15px rgba(46, 91, 186, 0.2);
+        }
+
+        .project-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .project-header h3 {
+            color: #2e5bba;
+            margin: 0;
+            padding: 5px;
+            border-radius: 4px;
+            min-width: 150px;
+            outline: none;
+        }
+
+        .project-header h3:focus {
+            background: white;
+            outline: 2px solid #2e5bba;
+        }
+
+        .delete-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .delete-btn:hover {
+            background: #c82333;
+            transform: scale(1.1);
+        }
+
+        .project-dates {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .project-dates input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            flex: 1;
+        }
+
+        .assignments {
+            min-height: 50px;
+            border: 1px dashed #ccc;
+            border-radius: 4px;
+            padding: 10px;
+            background: white;
+        }
+
+        .assignments:empty::before {
+            content: "Húzza ide a dolgozókat...";
+            color: #999;
+            font-style: italic;
+        }
+
+        .assignment {
+            background: #28a745;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            margin: 4px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            cursor: grab;
+            transition: all 0.3s ease;
+            font-size: 12px;
+        }
+
+        .assignment:hover {
+            background: #218838;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .assignment.dragging {
+            opacity: 0.5;
+        }
+
+        .assignment-remove {
+            background: rgba(255,255,255,0.3);
+            border: none;
+            color: white;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            font-size: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .role-group {
+            margin-bottom: 20px;
+        }
+
+        .role-group h3 {
+            color: #495057;
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            background: #e9ecef;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .employee {
+            background: #17a2b8;
+            color: white;
+            padding: 8px 15px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: grab;
+            display: inline-block;
+            transition: all 0.3s ease;
+            font-size: 13px;
+            user-select: none;
+        }
+
+        .employee:hover {
+            background: #138496;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .employee.dragging {
+            opacity: 0.5;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 10% auto;
+            padding: 30px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+
+        .close:hover {
+            color: #333;
+        }
+
+        .percentage-input {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .percentage-input input {
+            width: 100px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            text-align: center;
+            font-size: 16px;
+        }
+
+        .form-group {
+            margin: 15px 0;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        /* GANTT diagram stílusok */
+        .gantt-container {
+            overflow: auto;
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+        }
+
+        .gantt-chart {
+            min-width: 1000px;
+        }
+
+        .gantt-header {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            background: #f8f9fa;
+            border-bottom: 2px solid #ddd;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .gantt-header-cell {
+            padding: 15px;
+            border-right: 1px solid #ddd;
+            display: flex;
+            align-items: center;
+        }
+
+        .gantt-row {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            border-bottom: 1px solid #eee;
+            min-height: 50px;
+        }
+
+        .gantt-project-name {
+            padding: 15px;
+            border-right: 1px solid #eee;
+            background: #f8f9fa;
+            display: flex;
+            align-items: center;
+            font-weight: bold;
+            color: #2e5bba;
+        }
+
+        .gantt-timeline {
+            position: relative;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+        }
+
+        .gantt-bar {
+            background: linear-gradient(90deg, #2e5bba, #1e4a8c);
+            color: white;
+            border-radius: 20px;
+            padding: 8px 16px;
+            font-size: 12px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 100px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            animation: slideInBar 0.5s ease;
+        }
+
+        @keyframes slideInBar {
+            from { width: 0; opacity: 0; }
+            to { width: auto; opacity: 1; }
+        }
+
+        /* Responsive design */
+        @media (max-width: 1200px) {
+            .container {
+                grid-template-columns: 1fr;
+                padding: 15px;
+            }
+
+            .header-content {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            nav {
+                justify-content: center;
+            }
+        }
+
+        @media (max-width: 768px) {
+            nav button {
+                font-size: 12px;
+                padding: 6px 12px;
+            }
+
+            .create-section {
+                flex-direction: column;
+            }
+
+            .create-section input {
+                min-width: 100%;
+            }
+
+            .gantt-header {
+                grid-template-columns: 200px 1fr;
+            }
+
+            .gantt-row {
+                grid-template-columns: 200px 1fr;
+            }
+
+            .gantt-project-name {
+                padding: 10px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <div class="logo">Hunep - Erőforrás Hozzárendelés</div>
+            <nav>
+                <button onclick="showTab('projects')">Projektek & Dolgozók</button>
+                <button onclick="generateGanttChart()">GANTT diagram</button>
+                <button onclick="showNewEmployeeModal()">Új dolgozó</button>
+                <button onclick="generateComparisonChart()">Összehasonlító diagram</button>
+                <button onclick="saveState()">Állapot mentése</button>
+                <button onclick="loadState()">Állapot betöltése</button>
+                <button onclick="saveToPDF()">PDF export</button>
+            </nav>
+        </div>
+    </header>
+
+    <div class="container">
+        <div id="projects-section" class="section">
+            <h2>Projektek</h2>
+            <div class="create-section">
+                <input type="text" id="projectNameInput" placeholder="Projekt neve" />
+                <input type="date" id="projectStartDate" />
+                <input type="date" id="projectEndDate" />
+                <button class="btn" onclick="createProject()">Projekt létrehozása</button>
+            </div>
+            <div id="projects-container"></div>
+        </div>
+
+        <div id="employees-section" class="section">
+            <h2>Dolgozók</h2>
+            <div class="create-section">
+                <button class="btn" onclick="showNewEmployeeModal()">Új dolgozó hozzáadása</button>
+                <button class="btn" onclick="showCapacityOverview()">Kapacitás áttekintés</button>
+            </div>
+            <div id="employees-container"></div>
+        </div>
+    </div>
+
+    <!-- Percentage Modal -->
+    <div id="percentageModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closePercentageModal()">&times;</span>
+            <h3>Hozzárendelés százaléka</h3>
+            <div class="percentage-input">
+                <label>Százalék:</label>
+                <input type="number" id="percentageInput" min="1" max="100" value="100" />
+                <span>%</span>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-secondary" onclick="closePercentageModal()">Mégse</button>
+                <button class="btn" onclick="confirmAssignment()">Megerősítés</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Employee Modal -->
+    <div id="newEmployeeModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeNewEmployeeModal()">&times;</span>
+            <h3>Új dolgozó hozzáadása</h3>
+            <div class="form-group">
+                <label>Név:</label>
+                <input type="text" id="newEmployeeName" placeholder="Teljes név" />
+            </div>
+            <div class="form-group">
+                <label>Munkakör:</label>
+                <select id="newEmployeeRole">
+                    <option value="építésvezető">építésvezető</option>
+                    <option value="főépítésvezető">főépítésvezető</option>
+                    <option value="projektvezető főmérnök">projektvezető főmérnök</option>
+                    <option value="projektvezető mérnök">projektvezető mérnök</option>
+                    <option value="előkészítő mérnök">előkészítő mérnök</option>
+                    <option value="épületgépész projektmérnök">épületgépész projektmérnök</option>
+                    <option value="épületvillamossági projektmérnök">épületvillamossági projektmérnök</option>
+                    <option value="szerelőipari főmérnök">szerelőipari főmérnök</option>
+                    <option value="szerelőipari asszisztens">szerelőipari asszisztens</option>
+                    <option value="munkahelyi technikus">munkahelyi technikus</option>
+                </select>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-secondary" onclick="closeNewEmployeeModal()">Mégse</button>
+                <button class="btn" onclick="addNewEmployee()">Hozzáadás</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- GANTT Modal -->
+    <div id="ganttModal" class="modal">
+        <div class="modal-content" style="max-width: 95%; width: 1200px;">
+            <span class="close" onclick="closeGanttModal()">&times;</span>
+            <h3>GANTT Diagram</h3>
+            <div id="ganttContainer" class="gantt-container"></div>
+        </div>
+    </div>
+
+    <script>
+        // Globális változók
+        let projects = [];
+        let employees = [];
+        let draggedEmployee = null;
+        let currentDropTarget = null;
+
+        // Inicializálás
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                loadDefaultData();
+                renderProjects();
+                renderEmployees();
+                console.log('Alkalmazás sikeresen inicializálva');
+            } catch (error) {
+                console.error('Inicializálási hiba:', error);
+                alert('Hiba történt az alkalmazás betöltésekor!');
+            }
+        });
+
+        // Alapértelmezett adatok betöltése
+        function loadDefaultData() {
+            if (projects.length === 0) {
+                projects = [
+                    { id: 1, name: "Lauda projekt 1. ütem", startDate: "2025-02-03", endDate: "2025-07-31", assignments: [] },
+                    { id: 2, name: "Auguszta projekt", startDate: "2025-02-03", endDate: "2025-03-31", assignments: [] },
+                    { id: 3, name: "Lyceum szálloda", startDate: "2025-02-03", endDate: "2025-09-15", assignments: [] },
+                    { id: 4, name: "NYIA Rising csarnok", startDate: "2025-02-03", endDate: "2025-09-30", assignments: [] },
+                    { id: 5, name: "LEGO kantin", startDate: "2025-02-15", endDate: "2025-10-30", assignments: [] },
+                    { id: 6, name: "Bánky felújítás", startDate: "2025-03-01", endDate: "2025-10-30", assignments: [] },
+                    { id: 7, name: "Kossuth utcai társasház", startDate: "2025-02-20", endDate: "2025-12-31", assignments: [] },
+                    { id: 8, name: "Sátoraljaújhely szálloda", startDate: "2025-02-03", endDate: "2025-10-30", assignments: [] },
+                    { id: 9, name: "Balatonakarattya", startDate: "2025-05-01", endDate: "2025-12-31", assignments: [] },
+                    { id: 10, name: "Szabad kapacitás", startDate: "2025-04-01", endDate: "2025-12-31", assignments: [] },
+                    { id: 11, name: "Szabad kapacitás 2", startDate: "2025-07-01", endDate: "2025-12-31", assignments: [] }
+                ];
+            }
+
+            if (employees.length === 0) {
+                employees = [
+                    { id: 1, name: "Balogh Bence Sándor", role: "építésvezető" },
+                    { id: 2, name: "Barta Miklós", role: "építésvezető" },
+                    { id: 3, name: "Bencze Zoltán", role: "projektvezető főmérnök" },
+                    { id: 4, name: "Bordás Csaba", role: "építésvezető" },
+                    { id: 5, name: "Czinke-Nagy Fanni", role: "előkészítő mérnök" },
+                    { id: 6, name: "Deák Viktor", role: "projektvezető mérnök" },
+                    { id: 7, name: "Dobi Róbert", role: "főépítésvezető" },
+                    { id: 8, name: "Gerzsenyi László", role: "főépítésvezető" },
+                    { id: 9, name: "Gyöngyösi Józsefné", role: "előkészítő mérnök" },
+                    { id: 10, name: "Hidi Béla", role: "építésvezető" },
+                    { id: 11, name: "Hrabovszki János Norbert", role: "projektvezető mérnök" },
+                    { id: 12, name: "Hutóczki Kristóf", role: "épületgépész projektmérnök" },
+                    { id: 13, name: "Iglicz Zoltán", role: "munkahelyi technikus" },
+                    { id: 14, name: "Kaszonyi Botond", role: "építésvezető" },
+                    { id: 15, name: "Kiss Szabolcs Krisztián", role: "építésvezető" },
+                    { id: 16, name: "Kulcsár Lajos", role: "szerelőipari főmérnök" },
+                    { id: 17, name: "Kunkli Judit", role: "munkahelyi technikus" },
+                    { id: 18, name: "Lacza János", role: "előkészítő mérnök" },
+                    { id: 19, name: "Laposi Ferenc Ádám", role: "építésvezető" },
+                    { id: 20, name: "Lisku Gergő", role: "munkahelyi technikus" },
+                    { id: 21, name: "Nánási Attila", role: "építésvezető" },
+                    { id: 22, name: "Nemesné Gyöngyösi Katalin Györgyi", role: "előkészítő mérnök" },
+                    { id: 23, name: "Oláh András", role: "épületvillamossági projektmérnök" },
+                    { id: 24, name: "Pósán Miklós Zoltán", role: "épületvillamossági projektmérnök" },
+                    { id: 25, name: "Sáfár Noémi Rozália", role: "előkészítő mérnök" },
+                    { id: 26, name: "Sági Ibolya", role: "előkészítő mérnök" },
+                    { id: 27, name: "Sütő Károly", role: "projektvezető főmérnök" },
+                    { id: 28, name: "Süvöltős Sándor József", role: "épületgépész projektmérnök" },
+                    { id: 29, name: "Szabó Ivett Petronella", role: "szerelőipari asszisztens" },
+                    { id: 30, name: "Szarvas Sándor", role: "épületvillamossági projektmérnök" },
+                    { id: 31, name: "Varga Sándor", role: "munkahelyi technikus" },
+                    { id: 32, name: "Vigh Tamás", role: "projektvezető főmérnök" }
+                ];
+            }
+        }
+
+        // Projektek renderelése
+        function renderProjects() {
+            const container = document.getElementById('projects-container');
+            if (!container) return;
+
+            container.innerHTML = '';
+
+            projects.forEach(proj => {
+                const projDiv = document.createElement("div");
+                projDiv.className = "project";
+                projDiv.dataset.projectId = proj.id;
+
+                projDiv.innerHTML = `
+                    <div class="project-header">
+                        <h3 contenteditable="true" onblur="updateProjectName(this)">${escapeHtml(proj.name)}</h3>
+                        <button onclick="deleteProject(${proj.id})" class="delete-btn" title="Projekt törlése">×</button>
+                    </div>
+                    <div class="project-dates">
+                        <input type="date" value="${proj.startDate}" onchange="updateProjectDate(this, 'startDate')" title="Kezdő dátum">
+                        <input type="date" value="${proj.endDate}" onchange="updateProjectDate(this, 'endDate')" title="Befejezés dátuma">
+                    </div>
+                    <div class="assignments" title="Hozzárendelt dolgozók"></div>
+                `;
+
+                // Drag & drop event listenerek
+                projDiv.addEventListener("dragover", dragOver);
+                projDiv.addEventListener("dragleave", dragLeave);
+                projDiv.addEventListener("drop", dropEmployee);
+
+                // Meglévő assignments megjelenítése
+                const assignmentsDiv = projDiv.querySelector(".assignments");
+                if (proj.assignments && proj.assignments.length > 0) {
+                    proj.assignments.forEach(assignment => {
+                        const assignDiv = document.createElement("div");
+                        assignDiv.className = "assignment";
+                        assignDiv.innerHTML = `
+                            ${escapeHtml(assignment.name)} - ${assignment.perc}%
+                            <button class="assignment-remove" onclick="removeAssignment(${proj.id}, ${assignment.id})" title="Hozzárendelés eltávolítása">×</button>
+                        `;
+                        assignDiv.dataset.assignmentId = assignment.id;
+                        assignDiv.draggable = true;
+                        assignDiv.addEventListener("dragstart", assignmentDragStart);
+                        assignDiv.addEventListener("dragend", assignmentDragEnd);
+                        assignmentsDiv.appendChild(assignDiv);
+                    });
+                }
+
+                container.appendChild(projDiv);
+            });
+        }
+
+        // Dolgozók renderelése
+        function renderEmployees() {
+            const container = document.getElementById('employees-container');
+            if (!container) return;
+
+            container.innerHTML = '';
+
+            // Munkakörök szerint csoportosítás
+            const groupedEmployees = employees.reduce((groups, emp) => {
+                if (!groups[emp.role]) groups[emp.role] = [];
+                groups[emp.role].push(emp);
+                return groups;
+            }, {});
+
+            // Munkakörök rendezése
+            const sortedRoles = Object.keys(groupedEmployees).sort();
+
+            sortedRoles.forEach(role => {
+                const roleGroup = document.createElement('div');
+                roleGroup.className = 'role-group';
+                roleGroup.innerHTML = `<h3>${escapeHtml(role)} (${groupedEmployees[role].length} fő)</h3>`;
+
+                // Dolgozók névsor szerint rendezése
+                groupedEmployees[role].sort((a, b) => a.name.localeCompare(b.name, 'hu'));
+
+                groupedEmployees[role].forEach(emp => {
+                    const empDiv = document.createElement('div');
+                    empDiv.className = 'employee';
+                    empDiv.draggable = true;
+                    empDiv.dataset.employeeId = emp.id;
+                    empDiv.textContent = emp.name;
+                    empDiv.title = `${emp.name} - ${emp.role}`;
+
+                    // Drag event listenerek
+                    empDiv.addEventListener('dragstart', employeeDragStart);
+                    empDiv.addEventListener('dragend', employeeDragEnd);
+
+                    roleGroup.appendChild(empDiv);
+                });
+
+                container.appendChild(roleGroup);
+            });
+        }
+
+        // HTML escape funkció
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
+
+        // Projekt név frissítése
+        function updateProjectName(h3) {
+            const projectElem = h3.closest('.project');
+            const projectId = parseInt(projectElem.dataset.projectId);
+            const newName = h3.textContent.trim();
+            const proj = projects.find(p => p.id === projectId);
+            if (proj && newName) {
+                proj.name = newName;
+            }
+        }
+
+        // Projekt dátum frissítése
+        function updateProjectDate(input, type) {
+            const projectElem = input.closest('.project');
+            const projectId = parseInt(projectElem.dataset.projectId);
+            const proj = projects.find(p => p.id === projectId);
+            if (proj) {
+                proj[type] = input.value;
+                
+                // Dátum validáció
+                if (type === 'startDate' && proj.endDate && proj.startDate > proj.endDate) {
+                    alert('A kezdő dátum nem lehet későbbi, mint a befejezés dátuma!');
+                    input.value = proj.endDate;
+                    proj.startDate = proj.endDate;
+                }
+                if (type === 'endDate' && proj.startDate && proj.endDate < proj.startDate) {
+                    alert('A befejezés dátuma nem lehet korábbi, mint a kezdő dátum!');
+                    input.value = proj.startDate;
+                    proj.endDate = proj.startDate;
+                }
+            }
+        }
+
+        // Projekt törlése
+        function deleteProject(projectId) {
+            if (confirm('Biztosan törli ezt a projektet? Az összes hozzárendelés is elvész!')) {
+                projects = projects.filter(p => p.id !== projectId);
+                renderProjects();
+            }
+        }
+
+        // Hozzárendelés eltávolítása
+        function removeAssignment(projectId, employeeId) {
+            const project = projects.find(p => p.id === projectId);
+            if (project) {
+                project.assignments = project.assignments.filter(a => a.id !== employeeId);
+                renderProjects();
+            }
+        }
+
+        // Új projekt létrehozása
+        function createProject() {
+            const name = document.getElementById('projectNameInput').value.trim();
+            const startDate = document.getElementById('projectStartDate').value;
+            const endDate = document.getElementById('projectEndDate').value;
+
+            if (!name) {
+                alert('Kérem adja meg a projekt nevét!');
+                return;
+            }
+            if (!startDate || !endDate) {
+                alert('Kérem adja meg a projekt dátumait!');
+                return;
+            }
+            if (startDate > endDate) {
+                alert('A kezdő dátum nem lehet későbbi, mint a befejezés dátuma!');
+                return;
+            }
+
+            const newProject = {
+                id: Date.now(),
+                name: name,
+                startDate: startDate,
+                endDate: endDate,
+                assignments: []
+            };
+
+            projects.push(newProject);
+            renderProjects();
+
+            // Mezők törlése
+            document.getElementById('projectNameInput').value = '';
+            document.getElementById('projectStartDate').value = '';
+            document.getElementById('projectEndDate').value = '';
+        }
+
+        // Dolgozó drag kezdete
+        function employeeDragStart(e) {
+            draggedEmployee = {
+                id: parseInt(e.target.dataset.employeeId),
+                element: e.target
+            };
+            e.target.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'copy';
+            e.dataTransfer.setData('text/plain', ''); // Firefox kompatibilitás
+        }
+
+        // Dolgozó drag vége
+        function employeeDragEnd(e) {
+            e.target.classList.remove('dragging');
+            draggedEmployee = null;
+        }
+
+        // Drag over projekt
+        function dragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+            e.currentTarget.classList.add('drag-over');
+        }
+
+        // Drag leave projekt
+        function dragLeave(e) {
+            // Csak akkor távolítjuk el a stílust, ha tényleg elhagyjuk az elemet
+            if (!e.currentTarget.contains(e.relatedTarget)) {
+                e.currentTarget.classList.remove('drag-over');
+            }
+        }
+
+        // Dolgozó drop projekt
+        function dropEmployee(e) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+
+            if (draggedEmployee) {
+                currentDropTarget = e.currentTarget;
+                showPercentageModal();
+            }
+        }
+
+        // Százalék modal megjelenítése
+        function showPercentageModal() {
+            document.getElementById('percentageModal').style.display = 'block';
+            document.getElementById('percentageInput').focus();
+        }
+
+        // Százalék modal bezárása
+        function closePercentageModal() {
+            document.getElementById('percentageModal').style.display = 'none';
+            currentDropTarget = null;
+            document.getElementById('percentageInput').value = '100';
+        }
+
+        // Hozzárendelés megerősítése
+        function confirmAssignment() {
+            const percentage = parseInt(document.getElementById('percentageInput').value);
+            if (!percentage || percentage < 1 || percentage > 100) {
+                alert('Kérem adjon meg 1 és 100 között egy egész számot!');
+                return;
+            }
+
+            const projectId = parseInt(currentDropTarget.dataset.projectId);
+            const project = projects.find(p => p.id === projectId);
+            const employee = employees.find(e => e.id === draggedEmployee.id);
+
+            if (project && employee) {
+                // Ellenőrizzük, hogy már hozzá van-e rendelve
+                const existingAssignment = project.assignments.find(a => a.id === employee.id);
+                if (existingAssignment) {
+                    if (confirm(`${employee.name} már hozzá van rendelve ehhez a projekthez ${existingAssignment.perc}%-ban. Felülírja ${percentage}%-ra?`)) {
+                        existingAssignment.perc = percentage;
+                    }
+                } else {
+                    project.assignments.push({
+                        id: employee.id,
+                        name: employee.name,
+                        role: employee.role,
+                        perc: percentage
+                    });
+                }
+
+                renderProjects();
+            }
+
+            closePercentageModal();
+        }
+
+        // Assignment drag kezdete
+        function assignmentDragStart(e) {
+            e.target.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', e.target.dataset.assignmentId);
+        }
+
+        // Assignment drag vége
+        function assignmentDragEnd(e) {
+            e.target.classList.remove('dragging');
+        }
+
+        // Új dolgozó modal megjelenítése
+        function showNewEmployeeModal() {
+            document.getElementById('newEmployeeModal').style.display = 'block';
+            document.getElementById('newEmployeeName').focus();
+        }
+
+        // Új dolgozó modal bezárása
+        function closeNewEmployeeModal() {
+            document.getElementById('newEmployeeModal').style.display = 'none';
+            document.getElementById('newEmployeeName').value = '';
+            document.getElementById('newEmployeeRole').selectedIndex = 0;
+        }
+
+        // Új dolgozó hozzáadása
+        function addNewEmployee() {
+            const name = document.getElementById('newEmployeeName').value.trim();
+            const role = document.getElementById('newEmployeeRole').value;
+
+            if (!name) {
+                alert('Kérem adja meg a dolgozó nevét!');
+                return;
+            }
+
+            // Ellenőrizzük, hogy már létezik-e
+            if (employees.some(e => e.name.toLowerCase() === name.toLowerCase())) {
+                alert('Ez a dolgozó már létezik!');
+                return;
+            }
+
+            const newEmployee = {
+                id: Date.now(),
+                name: name,
+                role: role
+            };
+
+            employees.push(newEmployee);
+            renderEmployees();
+            closeNewEmployeeModal();
+        }
+
+        // GANTT diagram generálása
+        function generateGanttChart() {
+            if (projects.length === 0) {
+                alert('Nincsenek projektek a GANTT diagramhoz!');
+                return;
+            }
+
+            const container = document.getElementById('ganttContainer');
+            
+            // Projektek dátum szerint rendezése
+            const sortedProjects = [...projects].sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+
+            container.innerHTML = `
+                <div class="gantt-chart">
+                    <div class="gantt-header">
+                        <div class="gantt-header-cell">Projekt neve</div>
+                        <div class="gantt-header-cell">Időtartam és hozzárendelések</div>
+                    </div>
+                    ${sortedProjects.map(project => {
+                        const startDate = new Date(project.startDate);
+                        const endDate = new Date(project.endDate);
+                        const duration = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+                        const assignmentText = project.assignments.length > 0 
+                            ? `(${project.assignments.length} dolgozó hozzárendelve)`
+                            : '(nincs hozzárendelés)';
+                        
+                        return `
+                            <div class="gantt-row">
+                                <div class="gantt-project-name">${escapeHtml(project.name)}</div>
+                                <div class="gantt-timeline">
+                                    <div class="gantt-bar">
+                                        ${project.startDate} - ${project.endDate} (${duration} nap) ${assignmentText}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+
+            document.getElementById('ganttModal').style.display = 'block';
+        }
+
+        // GANTT modal bezárása
+        function closeGanttModal() {
+            document.getElementById('ganttModal').style.display = 'none';
+        }
+
+        // Kapacitás áttekintés
+        function showCapacityOverview() {
+            const capacityData = employees.map(emp => {
+                const assignments = [];
+                let totalCapacity = 0;
+
+                projects.forEach(project => {
+                    const assignment = project.assignments.find(a => a.id === emp.id);
+                    if (assignment) {
+                        assignments.push(`${project.name}: ${assignment.perc}%`);
+                        totalCapacity += assignment.perc;
+                    }
+                });
+
+                return {
+                    name: emp.name,
+                    role: emp.role,
+                    assignments: assignments,
+                    totalCapacity: totalCapacity
+                };
+            });
+
+            let alertText = 'KAPACITÁS ÁTTEKINTÉS\n\n';
+            capacityData.forEach(emp => {
+                alertText += `${emp.name} (${emp.role})\n`;
+                alertText += `Összes kapacitás: ${emp.totalCapacity}%\n`;
+                if (emp.assignments.length > 0) {
+                    alertText += `Hozzárendelések:\n${emp.assignments.map(a => `  • ${a}`).join('\n')}\n`;
+                } else {
+                    alertText += 'Nincs hozzárendelés\n';
+                }
+                alertText += '\n';
+            });
+
+            alert(alertText);
+        }
+
+        // Összehasonlító diagram
+        function generateComparisonChart() {
+            if (projects.length === 0) {
+                alert('Nincsenek projektek az összehasonlításhoz!');
+                return;
+            }
+
+            const comparisonData = projects.map(project => {
+                const startDate = new Date(project.startDate);
+                const endDate = new Date(project.endDate);
+                const duration = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+                
+                return {
+                    name: project.name,
+                    duration: duration,
+                    assignmentCount: project.assignments.length,
+                    totalCapacity: project.assignments.reduce((sum, a) => sum + a.perc, 0)
+                };
+            });
+
+            let chartText = 'PROJEKT ÖSSZEHASONLÍTÁS\n\n';
+            comparisonData.forEach(project => {
+                chartText += `${project.name}:\n`;
+                chartText += `  Időtartam: ${project.duration} nap\n`;
+                chartText += `  Dolgozók száma: ${project.assignmentCount}\n`;
+                chartText += `  Összes kapacitás: ${project.totalCapacity}%\n\n`;
+            });
+
+            alert(chartText);
+        }
+
+        // Állapot mentése
+        function saveState() {
+            try {
+                const state = {
+                    projects: projects,
+                    employees: employees,
+                    timestamp: new Date().toISOString(),
+                    version: '1.0'
+                };
+                localStorage.setItem('hunep-resource-state', JSON.stringify(state));
+                alert('Állapot sikeresen elmentve!');
+            } catch (error) {
+                console.error('Mentési hiba:', error);
+                alert('Hiba történt a mentés során!');
+            }
+        }
+
+        // Állapot betöltése
+        function loadState() {
+            try {
+                const saved = localStorage.getItem('hunep-resource-state');
+                if (saved) {
+                    const state = JSON.parse(saved);
+                    if (confirm(`Betölti a mentett állapotot? (${new Date(state.timestamp).toLocaleString('hu-HU')})\nA jelenlegi adatok elvesznek!`)) {
+                        projects = state.projects || [];
+                        employees = state.employees || [];
+                        renderProjects();
+                        renderEmployees();
+                        alert('Állapot sikeresen betöltve!');
+                    }
+                } else {
+                    alert('Nincs mentett állapot!');
+                }
+            } catch (error) {
+                console.error('Betöltési hiba:', error);
+                alert('Hiba történt a betöltés során!');
+            }
+        }
+
+        // PDF mentés
+        function saveToPDF() {
+            if (typeof jsPDF === 'undefined') {
+                alert('PDF könyvtár nem elérhető!');
+                return;
+            }
+
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+
+                // Fejléc
+                doc.setFontSize(18);
+                doc.text('Hunep - Erőforrás Hozzárendelés', 20, 20);
+                
+                doc.setFontSize(12);
+                doc.text(`Generálva: ${new Date().toLocaleString('hu-HU')}`, 20, 30);
+
+                let y = 50;
+
+                // Projektek
+                doc.setFontSize(14);
+                doc.text('PROJEKTEK:', 20, y);
+                y += 10;
+
+                projects.forEach((project, index) => {
+                    if (y > 270) { // Új oldal
+                        doc.addPage();
+                        y = 20;
+                    }
+
+                    doc.setFontSize(12);
+                    doc.text(`${index + 1}. ${project.name}`, 20, y);
+                    y += 8;
+                    
+                    doc.setFontSize(10);
+                    doc.text(`Időtartam: ${project.startDate} - ${project.endDate}`, 30, y);
+                    y += 6;
+                    
+                    if (project.assignments && project.assignments.length > 0) {
+                        doc.text('Hozzárendelések:', 30, y);
+                        y += 6;
+                        
+                        project.assignments.forEach(assignment => {
+                            if (y > 270) {
+                                doc.addPage();
+                                y = 20;
+                            }
+                            doc.text(`• ${assignment.name} (${assignment.role}) - ${assignment.perc}%`, 40, y);
+                            y += 5;
+                        });
+                    } else {
+                        doc.text('Nincs hozzárendelés', 30, y);
+                        y += 6;
+                    }
+                    y += 5;
+                });
+
+                // Dolgozók áttekintése
+                if (y > 200) {
+                    doc.addPage();
+                    y = 20;
+                }
+
+                doc.setFontSize(14);
+                doc.text('DOLGOZÓK ÖSSZESÍTÉSE:', 20, y);
+                y += 10;
+
+                const roleGroups = employees.reduce((groups, emp) => {
+                    if (!groups[emp.role]) groups[emp.role] = [];
+                    groups[emp.role].push(emp);
+                    return groups;
+                }, {});
+
+                Object.keys(roleGroups).forEach(role => {
+                    if (y > 270) {
+                        doc.addPage();
+                        y = 20;
+                    }
+                    
+                    doc.setFontSize(11);
+                    doc.text(`${role} (${roleGroups[role].length} fő):`, 20, y);
+                    y += 6;
+                    
+                    doc.setFontSize(9);
+                    roleGroups[role].forEach(emp => {
+                        if (y > 270) {
+                            doc.addPage();
+                            y = 20;
+                        }
+                        doc.text(`• ${emp.name}`, 30, y);
+                        y += 4;
+                    });
+                    y += 4;
+                });
+
+                doc.save(`hunep-eroforras-hozzarendeles-${new Date().toISOString().split('T')[0]}.pdf`);
+            } catch (error) {
+                console.error('PDF generálási hiba:', error);
+                alert('Hiba történt a PDF generálás során!');
+            }
+        }
+
+        // Tab kezelés
+        function showTab(tab) {
+            // Jelenleg minden egy oldalon van, de később bővíthető
+            console.log('Tab váltás:', tab);
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey) {
+                switch(e.key) {
+                    case 's':
+                        e.preventDefault();
+                        saveState();
+                        break;
+                    case 'o':
+                        e.preventDefault();
+                        loadState();
+                        break;
+                    case 'n':
+                        e.preventDefault();
+                        if (e.shiftKey) {
+                            showNewEmployeeModal();
+                        } else {
+                            document.getElementById('projectNameInput').focus();
+                        }
+                        break;
+                    case 'g':
+                        e.preventDefault();
+                        generateGanttChart();
+                        break;
+                }
+            }
+            
+            if (e.key === 'Escape') {
+                closePercentageModal();
+                closeNewEmployeeModal();
+                closeGanttModal();
+            }
+        });
+
+        // Modal click outside bezárás
+        window.addEventListener('click', function(e) {
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => {
+                if (e.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+        });
+
+        console.log('Hunep Erőforrás Hozzárendelés rendszer betöltve');
+    </script>
+</body>
+</html>
