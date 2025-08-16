@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hunep - Erőforrás Hozzárendelés</title>
+    <title>4Hunep - Erőforrás Hozzárendelés</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         * {
@@ -807,7 +807,7 @@
                     
                     empDiv.innerHTML = `
                         ${emp.name} ${totalCapacity > 0 ? `(${totalCapacity}%)` : ''}
-                        <button class="employee-delete" onclick="deleteEmployee(${emp.id})" title="Dolgozó törlése">×</button>
+                        <button class="employee-delete" onclick="event.stopPropagation(); deleteEmployee(${emp.id})" title="Dolgozó törlése">×</button>
                     `;
                     
                     // Tooltip frissítése
